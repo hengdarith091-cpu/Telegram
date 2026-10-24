@@ -14,22 +14,23 @@ def home():
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    caption = (
+    text_msg = (
         "ស្កែនមកកាន់ប្រព័ន្ធទូទាត់ប្រាក់ ប្រជុំរឿង VIP!\n\n"
         "តម្លៃសមាជិក: 1.00$\n"
         "សូមស្កេន QR Code ខាងលើដើម្បីទូទាត់ប្រាក់ ហើយផ្ញើ Slip មកទីនេះ!"
     )
     try:
-        # ប្រសិនបើនៅលើ GitHub របស់ ហាន់នី មានដាក់ឯកសាររូបភាព QR ឈ្មោះ qr.jpg វានឹងផ្ញើរូបភាពនិងអត្ថបទនេះដោយស្វ័យប្រវត្តិ
-        with open('qr.jpg', 'rb') as photo:
-            bot.send_photo(message.chat.id, photo, caption=caption)
-    except Exception:
-        # បើរកមិនឃើញ ፋይል qr.jpg វានឹងផ្ញើអត្ថបទជូនដំណឹងនេះជាមុនសិន
-        bot.reply_to(message, caption)
+        # ពិនិត្យមើលថាតើមាន file qr.jpg មែនឬអត់
+        if os.path.exists('qr.jpg'):
+            with open('qr.jpg', 'rb') as photo:
+                bot.send_photo(message.chat.id, photo, caption=text_msg)
+        else:
+            bot.reply_to(message, text_msg + "\n\n(ចំណាំ៖ រកមិនទាន់ឃើញไฟล์ qr.jpg ទេ)")
+    except Exception as e:
+        bot.reply_to(message, f"មានបញ្ហា Error: {str(e)}")
 
 def run_bot():
     try:
-        # ប្រើ skip_pending=True ដើម្បីកុំឱ្យទាក់ទងរឿង Error 409 Conflict
         bot.infinity_polling(skip_pending=True)
     except Exception as e:
         print(e)
