@@ -1,20 +1,30 @@
 import os
-import threading
 import telebot
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
-from flask import Flask
+from flask import Flask, request
 
 TOKEN = '8803556544:AAE4RIFsClLV5qD2PNNHgLwcMMme6Xp7HG4'
 bot = telebot.TeleBot(TOKEN)
 
 app = Flask(__name__)
 
-# Link សម្រាប់ចូល Channel VIP របស់អ្នក
-VIP_CHANNEL_LINK = "https://t.me/+RqTiOTj0znwwZjNl"
+# URL របស់ Render របស់អ្នក
+RENDER_URL = "https://telegram-1-9f5w.onrender.com"
+WEBHOOK_URL = f"{RENDER_URL}/{TOKEN}"
 
 @app.route('/')
 def home():
-    return "Bot is running!"
+    return "Bot is running with Webhook!"
+
+# ទទួលសារ Webhook ពី Telegram
+@app.route(f'/{TOKEN}', methods=['POST'])
+def webhook():
+    if request.headers.get('content-type') == 'application/json':
+        json_string = request.get_data().decode('utf-8')
+        update = telebot.types.Update.de_json(json_string)
+        bot.process_new_updates([update])
+        return "!", 200
+    else:
+        return "Invalid content type", 403
 
 # មុខងារពេលអតិថិជនវាយ /start
 @bot.message_handler(commands=['start'])
@@ -36,32 +46,21 @@ def send_welcome(message):
 # មុខងារពេលអតិថិជនផ្ញើរូបភាព (Slip) ចូលមក
 @bot.message_handler(content_types=['photo'])
 def handle_slip(message):
-    # ឆ្លើយតបប្រាប់អតិថិជនថាបានទទួល Slip ហើយ
     bot.reply_to(
         message, 
         "✅ បានទទួលវិក្កយបត្រ (Slip) របស់អ្នកហើយ!\nសូមរង់ចាំ Admin ពិនិត្យ និងផ្ទៀងផ្ទាត់បន្តិច។"
     )
-    
-    # បើ ហាន់នី ចង់ឱ្យវាផ្ញើ Link ជូនភ្លាមៗ ឬបង្កើតប៊ូតុងផ្ទៀងផ្ទាត់ អាចដាក់កូដបន្ថែមត្រង់នេះបាន
-    # ឧទាហរណ៍៖ បើចង់ឱ្យវាចេញ Link ជូនដោយស្វ័យប្រវត្តិពេលផ្ញើ Slip ចូលមក
     success_text = (
         "🎉 ការទូទាត់ប្រាក់របស់អ្នកត្រូវបានផ្ទៀងផ្ទាត់ និងអនុម័តជោគជ័យ!\n\n"
-        "សូមចុចទីនេះដើម្បីចូលឆានែល VIP:\n" + VIP_CHANNEL_LINK
+        "សូមចុចទីនេះដើម្បីចូលឆានែល VIP:\nhttps://t.me/+RqTiOTj0znwwZjNl"
     )
     bot.send_message(message.chat.id, success_text)
 
-def run_bot():
-    try:
-        bot.infinity_polling(skip_pending=True)
-    except Exception as e:
-        print(e)
-
 if __name__ == '__main__':
-    # រត់ Telegram Bot ក្នុង Thread ដាច់ដោយឡែក
-    bot_thread = threading.Thread(target=run_bot)
-    bot_thread.daemon = True
-    bot_thread.start()
+    # កំណត់ Webhook ទៅ Telegram ស្វ័យប្រវត្តិពេល Server ដំណើរការ
+    bot.remove_webhook()
+    bot.set_webhook(url=WEBHOOK_URL)
 
-    # រត់ Flask Web Server ដើម្បីបំពេញតម្រូវការ Port របស់ Render
+    # รត់ Flask Web Server
     port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port)
