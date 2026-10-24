@@ -4,7 +4,7 @@ import telebot
 from flask import Flask
 
 # ដាក់ Token Bot របស់អ្នកនៅទីនេះ
-TOKEN = '8803556544:AAGrb34ImMCmX2g2n0-ZDWtpszGPsZQAiBY'
+TOKEN = '8803556544:AAG0WJhcLfdVXkh57DEkNZVKjpSVJKcsQxM'
 bot = telebot.TeleBot(TOKEN)
 
 # ----------------- ផ្នែកបង្កើត Web Server ក្លែងក្លាយដើម្បីកុំឱ្យ Render Timeout -----------------
