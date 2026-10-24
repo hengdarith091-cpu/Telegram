@@ -1,37 +1,33 @@
 import os
-from threading import Thread
+import threading
 import telebot
 from flask import Flask
 
-# ដាក់ Token Bot របស់អ្នកនៅទីនេះ
 TOKEN = '8803556544:AAG0WJhcLfdVXkh57DEkNZVKjpSVJKcsQxM'
 bot = telebot.TeleBot(TOKEN)
 
-# ----------------- ផ្នែកបង្កើត Web Server ក្លែងក្លាយដើម្បីកុំឱ្យ Render Timeout -----------------
-app = Flask('')
-
+app = Flask(__name__)
 
 @app.route('/')
 def home():
-  return 'Bot is running 24/7!'
+    return "Bot is running!"
 
-
-def run():
-  app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
-
-
-def keep_alive():
-  t = Thread(target=run)
-  t.start()
-
-
-# ----------------- កូដ Bot របស់អ្នក -----------------
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-  bot.reply_to(message, 'សួស្តី! Bot កំពុងដំណើរការនៅលើ Render ហើយ។')
+    bot.reply_to(message, "សួស្តី! Bot កំពុងដំណើរការនៅលើ Render ហើយ។")
 
+def run_bot():
+    try:
+        bot.infinity_polling()
+    except Exception as e:
+        print(e)
 
-# ----------------- ចាប់ផ្តើមដំណើរការ -----------------
 if __name__ == '__main__':
-  keep_alive()  # បើក Server ឱ្យ Render ស្គាល់ Port
-  bot.infinity_polling()  # រាន់ Bot Telegram
+    # រត់ Telegram Bot ក្នុង Thread ដាច់ដោយឡែក
+    bot_thread = threading.Thread(target=run_bot)
+    bot_thread.daemon = True
+    bot_thread.start()
+
+    # រត់ Flask Web Server ដើម្បីបំពេញតម្រូវការ Port របស់ Render
+    port = int(os.environ.get('PORT', 10000))
+    app.run(host='0.0.0.0', port=port)
