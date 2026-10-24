@@ -8,7 +8,7 @@ bot = telebot.TeleBot(TOKEN)
 
 app = Flask(__name__)
 
-# សូមដាក់ Telegram Chat ID ផ្ទាល់ខ្លួនរបស់ ហាន់នី ត្រង់នេះ (អាចឆែកតាមរយៈ @userinfobot)
+# ប្រើ Username ផ្ទាល់ខ្លួនរបស់ ហាន់នី តែម្ដង
 ADMIN_CHAT_ID = "@Darith9999"
 
 RENDER_URL = "https://telegram-1-9f5w.onrender.com"
@@ -105,7 +105,7 @@ def callback_query(call):
             # ជូនដំណឹងទៅអតិថិជនថាត្រូវបានបដិសេធ
             bot.send_message(
                 target_user_id, 
-                "❌ សូមអភ័យទោស! វិក្កយបត្រ (Slip) របស់អ្នកមិនត្រឹមត្រូវ ឬមិនអាចផ្ទៀងផ្ទាត់ได้ទេ។ សូមទាក់ទង Admin ផ្ទាល់។"
+                "❌ សូមអភ័យទោស! វិក្កយបត្រ (Slip) របស់អ្នកមិនត្រឹមត្រូវ ឬមិនអាចផ្ទៀងផ្ទាត់បានទេ។ សូមទាក់ទង Admin ផ្ទាល់។"
             )
             
             # កែប្រែសាររបស់ Admin ថាបានបដិសេធ
