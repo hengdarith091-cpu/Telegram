@@ -1,5 +1,6 @@
 import os
 import telebot
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from flask import Flask, request
 
 TOKEN = '8803556544:AAE4RIFsClLV5qD2PNNHgLwcMMme6Xp7HG4'
@@ -7,15 +8,18 @@ bot = telebot.TeleBot(TOKEN)
 
 app = Flask(__name__)
 
-# URL របស់ Render របស់អ្នក
+# សូមដាក់ Telegram Chat ID ផ្ទាល់ខ្លួនរបស់ ហាន់នី ត្រង់នេះ (អាចឆែកតាមរយៈ @userinfobot)
+ADMIN_CHAT_ID = "123456789"
+
 RENDER_URL = "https://telegram-1-9f5w.onrender.com"
 WEBHOOK_URL = f"{RENDER_URL}/{TOKEN}"
 
+VIP_CHANNEL_LINK = "https://t.me/+RqTiOTj0znwwZjNl"
+
 @app.route('/')
 def home():
-    return "Bot is running with Webhook!"
+    return "Bot is running with Admin Approval System!"
 
-# ទទួលសារ Webhook ពី Telegram
 @app.route(f'/{TOKEN}', methods=['POST'])
 def webhook():
     if request.headers.get('content-type') == 'application/json':
@@ -26,7 +30,7 @@ def webhook():
     else:
         return "Invalid content type", 403
 
-# មុខងារពេលអតិថិជនវាយ /start
+# មុខងារពេលអតិថិជនផ្ញើសារ /start
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     caption = (
@@ -46,21 +50,77 @@ def send_welcome(message):
 # មុខងារពេលអតិថិជនផ្ញើរូបភាព (Slip) ចូលមក
 @bot.message_handler(content_types=['photo'])
 def handle_slip(message):
+    user_id = message.from_user.id
+    user_name = message.from_user.first_name or "អតិថិជន"
+    
+    # 1. ឆ្លើយតបប្រាប់អតិថិជនថាកំពុងរង់ចាំ Admin ពិនិត្យ
     bot.reply_to(
         message, 
         "✅ បានទទួលវិក្កយបត្រ (Slip) របស់អ្នកហើយ!\nសូមរង់ចាំ Admin ពិនិត្យ និងផ្ទៀងផ្ទាត់បន្តិច។"
     )
-    success_text = (
-        "🎉 ការទូទាត់ប្រាក់របស់អ្នកត្រូវបានផ្ទៀងផ្ទាត់ និងអនុម័តជោគជ័យ!\n\n"
-        "សូមចុចទីនេះដើម្បីចូលឆានែល VIP:\nhttps://t.me/+RqTiOTj0znwwZjNl"
+    
+    # 2. បង្កើតប៊ូតុងយល់ព្រម ឬបដិសេធសម្រាប់ Admin
+    markup = InlineKeyboardMarkup()
+    markup.row(
+        InlineKeyboardButton("✅ យល់ព្រម (Approve)", callback_data=f"approve_{user_id}"),
+        InlineKeyboardButton("❌ បដិសេធ (Reject)", callback_data=f"reject_{user_id}")
     )
-    bot.send_message(message.chat.id, success_text)
+    
+    # 3. ផ្ញើរូប Slip និងព័ត៌មានទៅកាន់ Admin ផ្ទាល់
+    try:
+        file_id = message.photo[-1].file_id
+        caption_admin = f"📩 មានការស្នើសុំចូល VIP ថ្មី!\n- ឈ្មោះ: {user_name}\n- User ID: {user_id}"
+        bot.send_photo(ADMIN_CHAT_ID, file_id, caption=caption_admin, reply_markup=markup)
+    except Exception as e:
+        print(f"Error sending to admin: {e}")
+
+# មុខងារពេល Admin ចុចលើប៊ូតុង
+@bot.callback_query_handler(func=lambda call: True)
+def callback_query(call):
+    data = call.data
+    if data.startswith("approve_"):
+        target_user_id = data.split("_")[1]
+        try:
+            # ផ្ញើ Link VIP ទៅកាន់អតិថិជន
+            success_text = (
+                "🎉 ការទូទាត់ប្រាក់របស់អ្នកត្រូវបាន Admin ផ្ទៀងផ្ទាត់ និងអនុម័តជោគជ័យ!\n\n"
+                "សូមចុចទីនេះដើម្បីចូលឆានែល VIP:\n" + VIP_CHANNEL_LINK
+            )
+            bot.send_message(target_user_id, success_text)
+            
+            # កែប្រែសាររបស់ Admin ថាបានអនុម័តរួច
+            bot.edit_message_caption(
+                chat_id=call.message.chat.id,
+                message_id=call.message.message_id,
+                caption=call.message.caption + "\n\nSTATUS: ✅ បានអនុម័តរួចរាល់ (Approved)",
+                reply_markup=None
+            )
+            bot.answer_callback_query(call.id, "បានអនុម័ត និងផ្ញើ Link ជូនអតិថិជនជោគជ័យ!")
+        except Exception as e:
+            bot.answer_callback_query(call.id, f"Error: {e}")
+            
+    elif data.startswith("reject_"):
+        target_user_id = data.split("_")[1]
+        try:
+            # ជូនដំណឹងទៅអតិថិជនថាត្រូវបានបដិសេធ
+            bot.send_message(
+                target_user_id, 
+                "❌ សូមអភ័យទោស! វិក្កយបត្រ (Slip) របស់អ្នកមិនត្រឹមត្រូវ ឬមិនអាចផ្ទៀងផ្ទាត់ได้ទេ។ សូមទាក់ទង Admin ផ្ទាល់។"
+            )
+            
+            # កែប្រែសាររបស់ Admin ថាបានបដិសេធ
+            bot.edit_message_caption(
+                chat_id=call.message.chat.id,
+                message_id=call.message.message_id,
+                caption=call.message.caption + "\n\nSTATUS: ❌ បានបដិសេធ (Rejected)",
+                reply_markup=None
+            )
+            bot.answer_callback_query(call.id, "បានបដិសេធវិក្កយបត្រនេះរួចហើយ!")
+        except Exception as e:
+            bot.answer_callback_query(call.id, f"Error: {e}")
 
 if __name__ == '__main__':
-    # កំណត់ Webhook ទៅ Telegram ស្វ័យប្រវត្តិពេល Server ដំណើរការ
     bot.remove_webhook()
     bot.set_webhook(url=WEBHOOK_URL)
-
-    # รត់ Flask Web Server
     port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port)
