@@ -9,7 +9,7 @@ bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
 
 # 🔴 ជំនួសកន្លែងនេះដោយតួលេខ Chat ID របស់អ្នក (ក្រោយពេលឆែករួច)
-ADMIN_CHAT_ID = "123456789"
+ADMIN_CHAT_ID = "@Darith9999"
 
 RENDER_URL = "https://telegram-1-9f5w.onrender.com"
 WEBHOOK_URL = f"{RENDER_URL}/{TOKEN}"
