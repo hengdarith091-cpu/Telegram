@@ -8,8 +8,8 @@ bot = telebot.TeleBot(TOKEN)
 
 app = Flask(__name__)
 
-# ប្រើ Username ផ្ទាល់ខ្លួនរបស់ ហាន់នី តែម្ដង
-ADMIN_CHAT_ID = "@Darith9999"
+# 🔴 ជំនួសកន្លែងនេះដោយតួលេខ Chat ID របស់អ្នក (ក្រោយពេលឆែករួច)
+ADMIN_CHAT_ID = "123456789"
 
 RENDER_URL = "https://telegram-1-9f5w.onrender.com"
 WEBHOOK_URL = f"{RENDER_URL}/{TOKEN}"
@@ -29,6 +29,11 @@ def webhook():
         return "!", 200
     else:
         return "Invalid content type", 403
+
+# 🛠️ មុខងារពិសេស៖ ឆែករកលេខ Chat ID ផ្ទាល់ខ្លួន
+@bot.message_handler(commands=['myid'])
+def send_my_id(message):
+    bot.reply_to(message, f"Telegram Chat ID របស់អ្នកគឺ: {message.chat.id}")
 
 # មុខងារពេលអតិថិជនផ្ញើសារ /start
 @bot.message_handler(commands=['start'])
