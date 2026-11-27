@@ -3,9 +3,11 @@ import logging
 import os
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.error import TelegramError
 from telegram.ext import (
     ApplicationBuilder,
     CallbackQueryHandler,
+    ChatJoinRequestHandler,
     CommandHandler,
     ContextTypes,
     MessageHandler,
@@ -31,7 +33,7 @@ def get_env_config() -> tuple[str, int, int]:
     if not vip_chat_raw:
         raise ValueError(
             "VIP_CHAT_ID environment variable is missing! "
-            "Set VIP_CHAT_ID (e.g. -100...) so each approved user gets a unique 1-time invite link."
+            "Set VIP_CHAT_ID (e.g. -100...) so each approved user gets a unique invite link."
         )
 
     try:
@@ -145,9 +147,21 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
     base_caption = query.message.caption or "" if query.message else ""
 
     if action == "approve":
+        try:
+            await context.bot.unban_chat_member(
+                chat_id=vip_chat_id,
+                user_id=target_user_id,
+                only_if_banned=True,
+            )
+        except TelegramError as exc:
+            logger.warning("unban_chat_member skipped/failed for %s: %s", target_user_id, exc)
+
+        approved_users = context.bot_data.setdefault("approved_users", set())
+        approved_users.add(target_user_id)
+
         invite = await context.bot.create_chat_invite_link(
             chat_id=vip_chat_id,
-            member_limit=1,
+            creates_join_request=True,
             name=f"VIP-{target_user_id}",
         )
         invite_link_to_send = invite.invite_link
@@ -156,16 +170,14 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
             chat_id=target_user_id,
             text=(
                 "🎉 សំណើ VIP របស់អ្នកត្រូវបានអនុម័ត!\n"
-                "នេះជា Link ចូល VIP របស់អ្នក (បង្កើតថ្មីសម្រាប់តែគណនីរបស់អ្នក និងប្រើបានតែ 1 ដងប៉ុណ្ណោះ)៖\n"
-                f"{invite_link_to_send}\n\n"
-                "ប្រសិនបើគណនីរបស់អ្នកធ្លាប់ចូលពីមុន ហើយ Telegram បង្ហាញ Link មិនត្រឹមត្រូវ "
-                "សូមទាក់ទង Admin ដើម្បីបន្ថែមចូលដោយផ្ទាល់។"
+                "សូមចុច Link ខាងក្រោម ហើយចុច Request to Join — Bot នឹងអនុម័តឱ្យចូលដោយស្វ័យប្រវត្តិ៖\n"
+                f"{invite_link_to_send}"
             ),
         )
-        new_caption = f"{base_caption}\n\n✅ ស្ថានភាព៖ បានអនុម័ត (បង្កើត Link ថ្មី 1 ដងរួចរាល់)"
+        new_caption = f"{base_caption}\n\n✅ ស្ថានភាព៖ បានអនុម័ត (បង្កើត Join Request Link រួចរាល់)"
         if query.message:
             await query.message.edit_caption(caption=new_caption, reply_markup=None)
-        await query.answer("បានបង្កើត Link ថ្មីសម្រាប់ User នេះ និងផ្ញើរួចរាល់។")
+        await query.answer("បានបង្កើត Link និងផ្ញើទៅ User រួចរាល់។")
 
     elif action == "reject":
         await context.bot.send_message(
@@ -181,6 +193,27 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
         await query.answer("បានបដិសេធសំណើ។")
 
 
+async def handle_join_request(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    join_req = update.chat_join_request
+    if not join_req or not join_req.from_user:
+        return
+
+    _, _, vip_chat_id = get_env_config()
+    if join_req.chat.id != vip_chat_id:
+        return
+
+    user_id = join_req.from_user.id
+    approved_users = context.bot_data.get("approved_users", set())
+
+    if user_id in approved_users:
+        try:
+            await join_req.approve()
+            approved_users.discard(user_id)
+            logger.info("Auto-approved join request for user %s", user_id)
+        except TelegramError as exc:
+            logger.error("Failed to approve join request for %s: %s", user_id, exc)
+
+
 def main() -> None:
     bot_token, _, _ = get_env_config()
 
@@ -193,6 +226,7 @@ def main() -> None:
     app.add_handler(MessageHandler(filters.PHOTO, handle_slip_photo))
     app.add_handler(MessageHandler(~filters.PHOTO & ~filters.COMMAND, handle_other_message))
     app.add_handler(CallbackQueryHandler(handle_admin_callback))
+    app.add_handler(ChatJoinRequestHandler(handle_join_request))
 
     logger.info("Starting Telegram VIP Bot polling...")
     app.run_polling(drop_pending_updates=True)
