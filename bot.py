@@ -176,4 +176,27 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
             ),
         )
         new_caption = f"{base_caption}\n\n❌ ស្ថានភាព៖ បានបដិសេធ (Rejected)"
-        if query.
+        if query.message:
+            await query.message.edit_caption(caption=new_caption, reply_markup=None)
+        await query.answer("បានបដិសេធសំណើ។")
+
+
+def main() -> None:
+    bot_token, _, _ = get_env_config()
+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    app = ApplicationBuilder().token(bot_token).build()
+
+    app.add_handler(CommandHandler("start", start_command))
+    app.add_handler(MessageHandler(filters.PHOTO, handle_slip_photo))
+    app.add_handler(MessageHandler(~filters.PHOTO & ~filters.COMMAND, handle_other_message))
+    app.add_handler(CallbackQueryHandler(handle_admin_callback))
+
+    logger.info("Starting Telegram VIP Bot polling...")
+    app.run_polling(drop_pending_updates=True)
+
+
+if __name__ == "__main__":
+    main()
