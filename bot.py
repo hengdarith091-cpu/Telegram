@@ -57,13 +57,13 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         "សួស្តី! ស្វាគមន៍មកកាន់ ប្រជុំរឿង VIP 🎬✨\n\n"
         "បន្ទាប់ពីបង់ប្រាក់រួច សូមផ្ញើរូបភាពវិក្កយបត្រ (Slip) ត្រឡប់មកទីនេះ "
         "ដើម្បីឱ្យ Admin ពិនិត្យ និងផ្តល់ Link ចូល VIP ជូនអ្នក។\n\n"
+        "ប្រសិនបើអ្នកធ្លាប់ចូលរួចហើយចាកចេញ ហើយចង់ចូលម្តងទៀត "
+        "អ្នកអាចបង់ប្រាក់ និងផ្ញើ Slip ថ្មីមកទីនេះជាលើកទី 2 បានជាធម្មតា។\n\n"
         "Admin សូមអភ័យទោសទុកជាមុនចំពោះការចំណាយនេះ "
         "ហើយសង្ឃឹមថាអ្នកទាំងអស់គ្នានឹងយោគយល់។ "
         "Admin ក៏ចង់ផុសជូនមើល Free ដូចមុនដែរ "
         "តែរឿងខ្លះជាប់ Copyright ផុសជាសាធារណៈមិនបាន "
         "ទើបបង្កើត Channel VIP នេះឡើង។\n\n"
-        "អ្នកទាំងអស់គ្នាបង់តែ ម្តងគត់ ប៉ុណ្ណោះ "
-        "ដើម្បីជួយទ្រទ្រង់ថ្លៃសេវាប្រចាំខែរបស់ Telegram និង Server របស់ Admin។ "
         "អរគុណខ្លាំងមែនទែនសម្រាប់ការគាំទ្រជានិច្ច! 🙏❤️"
     )
     if os.path.exists("qr.jpg"):
@@ -157,7 +157,9 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
             text=(
                 "🎉 សំណើ VIP របស់អ្នកត្រូវបានអនុម័ត!\n"
                 "នេះជា Link ចូល VIP របស់អ្នក (បង្កើតថ្មីសម្រាប់តែគណនីរបស់អ្នក និងប្រើបានតែ 1 ដងប៉ុណ្ណោះ)៖\n"
-                f"{invite_link_to_send}"
+                f"{invite_link_to_send}\n\n"
+                "ប្រសិនបើគណនីរបស់អ្នកធ្លាប់ចូលពីមុន ហើយ Telegram បង្ហាញ Link មិនត្រឹមត្រូវ "
+                "សូមទាក់ទង Admin ដើម្បីបន្ថែមចូលដោយផ្ទាល់។"
             ),
         )
         new_caption = f"{base_caption}\n\n✅ ស្ថានភាព៖ បានអនុម័ត (បង្កើត Link ថ្មី 1 ដងរួចរាល់)"
@@ -174,27 +176,4 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
             ),
         )
         new_caption = f"{base_caption}\n\n❌ ស្ថានភាព៖ បានបដិសេធ (Rejected)"
-        if query.message:
-            await query.message.edit_caption(caption=new_caption, reply_markup=None)
-        await query.answer("បានបដិសេធសំណើ។")
-
-
-def main() -> None:
-    bot_token, _, _ = get_env_config()
-
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-
-    app = ApplicationBuilder().token(bot_token).build()
-
-    app.add_handler(CommandHandler("start", start_command))
-    app.add_handler(MessageHandler(filters.PHOTO, handle_slip_photo))
-    app.add_handler(MessageHandler(~filters.PHOTO & ~filters.COMMAND, handle_other_message))
-    app.add_handler(CallbackQueryHandler(handle_admin_callback))
-
-    logger.info("Starting Telegram VIP Bot polling...")
-    app.run_polling(drop_pending_updates=True)
-
-
-if __name__ == "__main__":
-    main()
+        if query.
