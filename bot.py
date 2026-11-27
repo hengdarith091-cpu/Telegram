@@ -19,24 +19,33 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def get_env_config() -> tuple[str, int, str]:
+def get_env_config() -> tuple[str, int, int | None, str | None]:
     bot_token = os.getenv("BOT_TOKEN", "").strip()
     admin_raw = os.getenv("ADMIN_CHAT_ID", "").strip()
-    vip_link = os.getenv("VIP_INVITE_LINK", "").strip()
+    vip_chat_raw = os.getenv("VIP_CHAT_ID", "").strip()
+    vip_link_fallback = os.getenv("VIP_INVITE_LINK", "").strip() or None
 
     if not bot_token:
         raise ValueError("BOT_TOKEN environment variable is missing! Set BOT_TOKEN before running.")
     if not admin_raw:
         raise ValueError("ADMIN_CHAT_ID environment variable is missing! Set ADMIN_CHAT_ID before running.")
-    if not vip_link:
-        raise ValueError("VIP_INVITE_LINK environment variable is missing! Set VIP_INVITE_LINK before running.")
 
     try:
         admin_chat_id = int(admin_raw)
     except ValueError as exc:
         raise ValueError("ADMIN_CHAT_ID must be a valid integer Telegram chat/user ID.") from exc
 
-    return bot_token, admin_chat_id, vip_link
+    vip_chat_id: int | None = None
+    if vip_chat_raw:
+        try:
+            vip_chat_id = int(vip_chat_raw)
+        except ValueError as exc:
+            raise ValueError("VIP_CHAT_ID must be a valid integer Telegram channel/group ID (e.g. -100...).") from exc
+
+    if vip_chat_id is None and not vip_link_fallback:
+        raise ValueError("Set VIP_CHAT_ID (recommended for 1-time links) or VIP_INVITE_LINK.")
+
+    return bot_token, admin_chat_id, vip_chat_id, vip_link_fallback
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -46,7 +55,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     welcome_text = (
         "សួស្តី! ស្វាគមន៍មកកាន់សេវាកម្ម VIP។\n\n"
         "សូមផ្ញើរូបភាព Slip ការបង់ប្រាក់របស់អ្នកមកទីនេះ "
-        "បន្ទាប់មក Admin នឹងពិនិត្យ និងផ្តល់ Link ចូល VIP ជូនអ្នក។"
+        "បន្ទាប់មក Admin នឹងពិនិត្យ និងផ្តល់ Link ចូល VIP ជូនអ្នក (ប្រើបានតែ 1 គណនីប៉ុណ្ណោះ)។"
     )
     if os.path.exists("qr.jpg"):
         with open("qr.jpg", "rb") as qr_file:
@@ -59,7 +68,7 @@ async def handle_slip_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     if not update.message or not update.message.photo or not update.effective_user:
         return
 
-    _, admin_chat_id, _ = get_env_config()
+    _, admin_chat_id, _, _ = get_env_config()
     user = update.effective_user
     photo_file_id = update.message.photo[-1].file_id
     caption_text = update.message.caption or "(គ្មានចំណារ)"
@@ -107,7 +116,7 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
     if not query or not query.data:
         return
 
-    _, admin_chat_id, vip_link = get_env_config()
+    _, admin_chat_id, vip_chat_id, vip_link_fallback = get_env_config()
     if query.from_user.id != admin_chat_id:
         await query.answer("អ្នកមិនមែនជា Admin ទេ។", show_alert=True)
         return
@@ -127,17 +136,28 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
     base_caption = query.message.caption or "" if query.message else ""
 
     if action == "approve":
+        if vip_chat_id is not None:
+            invite = await context.bot.create_chat_invite_link(
+                chat_id=vip_chat_id,
+                member_limit=1,
+                name=f"VIP-{target_user_id}",
+            )
+            invite_link_to_send = invite.invite_link
+        else:
+            invite_link_to_send = vip_link_fallback or ""
+
         await context.bot.send_message(
             chat_id=target_user_id,
             text=(
                 "🎉 សំណើ VIP របស់អ្នកត្រូវបានអនុម័ត!\n"
-                f"នេះជា Link ចូល VIP របស់អ្នក៖ {vip_link}"
+                f"នេះជា Link ចូល VIP របស់អ្នក (ប្រើបានតែ 1 ដងសម្រាប់ 1 គណនីប៉ុណ្ណោះ)៖\n"
+                f"{invite_link_to_send}"
             ),
         )
-        new_caption = f"{base_caption}\n\n✅ ស្ថានភាព៖ បានអនុម័ត (Approved)"
+        new_caption = f"{base_caption}\n\n✅ ស្ថានភាព៖ បានអនុម័ត (Link ប្រើបាន 1 ដង)"
         if query.message:
             await query.message.edit_caption(caption=new_caption, reply_markup=None)
-        await query.answer("បានអនុម័ត និងផ្ញើ Link VIP ទៅអ្នកប្រើប្រាស់រួចរាល់។")
+        await query.answer("បានបង្កើត Link ប្រើបាន 1 ដង និងផ្ញើទៅអ្នកប្រើប្រាស់រួចរាល់។")
 
     elif action == "reject":
         await context.bot.send_message(
@@ -154,7 +174,7 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
 
 def main() -> None:
-    bot_token, _, _ = get_env_config()
+    bot_token, _, _, _ = get_env_config()
 
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
